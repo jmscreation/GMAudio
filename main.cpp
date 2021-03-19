@@ -1,6 +1,7 @@
 #include "main.h"
 using namespace Engine;
 
+bool initialized = false;
 std::vector<SoundBuffer*> sounds;
 std::vector<SoundInstance*> instances;
 
@@ -18,12 +19,17 @@ SoundInstance* get_instance(size_t id){
 extern "C" {
 
     GMEXPORT double dll_init() {
+		if(initialized) return 0;
+		
         sounds.reserve(1024 * 64);
         instances.reserve(1024 * 64);
+		
+		initialized = true;
         return 1;
     }
 
     GMEXPORT double dll_free() {
+		if(!initialized) return 0;
         for(SoundInstance* ii : instances){
             if(ii == nullptr) continue;
             delete ii;
@@ -36,10 +42,12 @@ extern "C" {
         sounds.clear();
         AudioContext::current().free();
 
+		initialized = false;
         return 1;
     }
 
     GMEXPORT double clean_memory(double destroyInstances) {
+		if(!initialized) return -1;
         size_t count = 0;
         if(destroyInstances > 0){ // free sound instances that are not playing
             for(SoundInstance*& ii : instances){
@@ -70,6 +78,7 @@ extern "C" {
     }
 
     GMEXPORT double sound_add(const char* path) {
+		if(!initialized) return -1;
         SoundBuffer* snd = new SoundBuffer;
 
         if(!snd->loadOGGFromFile(path)) {
