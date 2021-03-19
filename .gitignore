@@ -14,7 +14,7 @@
 # Compiled Dynamic libraries
 *.so
 *.dylib
-*.dll
+#*.dll #Allow the release to be uploaded
 
 # Fortran module files
 *.mod
@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+*.depend
+*.layout
+AudioDLL.cscope_file_list
