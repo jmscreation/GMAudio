@@ -1,6 +1,9 @@
 @echo off
 
+REM Note: Please use 32bit GCC as Game Maker runs in 32bit mode only!
+
 REM Set Paths Here:
+
 
 set GCC_BIN_DIR=C:\MinGW-W64\mingw32-10.2.0\bin
 set OUTPUT=AudioDLL.dll
