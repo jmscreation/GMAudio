@@ -61,10 +61,10 @@ namespace Engine {
 
 		int sampleLength();
 		float length();
-		void defaultDestroy(bool defdest) { defDestroy=defdest; }
-		bool defaultDestroy() { return defDestroy; }
-		void defaultVolume(float defvol) { defVolume=defvol; }
-		float defaultVolume() { return defVolume; }
+		inline void defaultDestroy(bool defdest) { defDestroy=defdest; }
+		inline bool defaultDestroy() { return defDestroy; }
+		inline void defaultVolume(float defvol) { defVolume=defvol; }
+		inline float defaultVolume() { return defVolume; }
 
 		SoundInstance* play();
 		SoundInstance* play(bool dest);
@@ -94,21 +94,22 @@ namespace Engine {
 		void pause();
 		void stop(bool dest=false);
 		void setspeed(float spd);
-		float getspeed() { return pspeed; }
+		inline float getspeed() { return pspeed; }
 
 		bool isPlaying() { return (speed != 0); }
 
-		void pan(float pan) { volPan=pan<-1 ? -1 : pan>1 ? 1 : pan; }
 		float pan() { return volPan; }
-		void volume(float v) { vol=v<0 ? 0 : v; }
 		float volume() { return vol; }
+		inline void volume(float v) { vol=v<0 ? 0 : v; }
+		inline void pan(float pan) { volPan=pan<-1 ? -1 : pan>1 ? 1 : pan; }
+		inline SoundBuffer* getSoundBuffer() { return sound; }
 
-		int sampleLength() { return sound->sampleLength(); }
 		int samplePosition();
 		void samplePosition(int pos);
-		float length() { return sound->length(); }
 		double position();
 		void position(double pos);
+		inline int sampleLength() { return sound->sampleLength(); }
+		inline float length() { return sound->length(); }
 
 	private:
 		void sample(float& L,float& R);

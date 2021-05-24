@@ -234,4 +234,16 @@ extern "C" {
         return ii->volume();
     }
 
+    GMEXPORT double ii_get_sound(double id) {
+        SoundInstance* ii = get_instance(id);
+
+        if(ii == nullptr) return -1;
+        SoundBuffer* snd = ii->getSoundBuffer();
+
+        if(snd == nullptr) return -1;
+        auto pos = std::find(sounds.begin(), sounds.end(), snd);
+
+        return double(pos - sounds.begin());
+    }
+
 }
