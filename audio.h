@@ -1,17 +1,17 @@
 #ifndef __ENGINE_AUDIO_H__
 #define __ENGINE_AUDIO_H__
 
+#define STB_VORBIS_HEADER_ONLY
+#include "stb_vorbis.h"
+#include "portaudio.h"
+
 #include <windows.h>
 #include <iostream>
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <thread>
 #include <cmath>
-
-
-#define STB_VORBIS_HEADER_ONLY
-#include "stb_vorbis.h"
-#include "portaudio.h"
 
 namespace Engine {
 
@@ -19,13 +19,19 @@ namespace Engine {
 	class SoundBuffer;
 	class SoundInstance;
 
+
+	typedef SoundInstance* pSoundInstance;
+
 	class AudioContext {
 		static AudioContext* currentCtx;
 
-		std::vector<SoundInstance*> playlist;
+		std::vector<pSoundInstance> playlist;
 		std::mutex locked;
 		int sampleRate;
 		PaStream* stream;
+		std::thread* autoDestroy;
+		std::atomic<bool> ctxRunning;
+
 	public:
 		AudioContext(int sampleRate=48000);
 		virtual ~AudioContext();
@@ -38,6 +44,7 @@ namespace Engine {
 				const PaStreamCallbackTimeInfo* tmi,PaStreamCallbackFlags flgs,void* dat);
 		int callback(const void* in,void* out,unsigned long fpb,
 				const PaStreamCallbackTimeInfo* tmi,PaStreamCallbackFlags flgs);
+		static void callbackAutoDestroy(AudioContext* ctx);
 
 		friend class SoundBuffer;
 		friend class SoundInstance;
@@ -66,12 +73,12 @@ namespace Engine {
 		inline void defaultVolume(float defvol) { defVolume=defvol; }
 		inline float defaultVolume() { return defVolume; }
 
-		SoundInstance* play();
-		SoundInstance* play(bool dest);
-		SoundInstance* loop();
-		SoundInstance* loop(bool dest);
-		SoundInstance* create();
-		SoundInstance* create(bool dest);
+		pSoundInstance play();
+		pSoundInstance play(bool dest);
+		pSoundInstance loop();
+		pSoundInstance loop(bool dest);
+		pSoundInstance create();
+		pSoundInstance create(bool dest);
 
 	private:
 		void sample(float& L,float& R,const double& p);
@@ -83,9 +90,10 @@ namespace Engine {
 		SoundBuffer* sound;
 		double pos;
 		float speed, volPan, vol, pspeed;
-		bool destroy,looping;
+		bool destroy, looping;
+		std::atomic<bool> garbage;
 	public:
-		SoundInstance(SoundBuffer* buf,int playmode=0,bool destroy=false,float volume=1);
+		SoundInstance(SoundBuffer* buf, int playmode=0, bool destroy=false, float volume=1);
 		virtual ~SoundInstance();
 
 		inline bool fromSoundBuffer(SoundBuffer* ptr) { return ptr == sound; }

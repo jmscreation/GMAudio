@@ -3,14 +3,14 @@ using namespace Engine;
 
 bool initialized = false;
 std::vector<SoundBuffer*> sounds;
-std::vector<SoundInstance*> instances;
+std::vector<pSoundInstance> instances;
 
 SoundBuffer* get_sound(size_t id) {
     if(id >= sounds.size()) return nullptr;
     return sounds[id];
 }
 
-SoundInstance* get_instance(size_t id){
+pSoundInstance get_instance(size_t id){
     if(id >= instances.size()) return nullptr;
     return instances[id];
 }
@@ -114,7 +114,7 @@ extern "C" {
 
         if(snd == nullptr) return -1;
 
-        SoundInstance* ii = snd->play();
+        pSoundInstance ii = snd->play();
 
         size_t _id = instances.size();
         instances.push_back(ii);
@@ -127,7 +127,7 @@ extern "C" {
 
         if(snd == nullptr) return -1;
 
-        SoundInstance* ii = snd->create();
+        pSoundInstance ii = snd->create();
 
         size_t _id = instances.size();
         instances.push_back(ii);
@@ -154,7 +154,7 @@ extern "C" {
     }
 
     GMEXPORT double ii_destroy(double id) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
 
@@ -165,7 +165,7 @@ extern "C" {
     }
 
     GMEXPORT double ii_pause(double id) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
         ii->pause();
@@ -174,7 +174,7 @@ extern "C" {
     }
 
     GMEXPORT double ii_resume(double id, double loop) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
         if(loop > 0){
@@ -187,7 +187,7 @@ extern "C" {
     }
 
     GMEXPORT double ii_set_speed(double id, double speed) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
         ii->setspeed(speed);
@@ -196,14 +196,14 @@ extern "C" {
     }
 
     GMEXPORT double ii_get_speed(double id) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
         return ii->getspeed();
     }
 
     GMEXPORT double ii_set_position(double id, double position) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
         ii->position(position);
@@ -212,14 +212,14 @@ extern "C" {
     }
 
     GMEXPORT double ii_get_position(double id) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
         return ii->position();
     }
 
     GMEXPORT double ii_set_volume(double id, double volume) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
         ii->volume(volume);
@@ -228,14 +228,14 @@ extern "C" {
     }
 
     GMEXPORT double ii_get_volume(double id) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
         return ii->volume();
     }
 
     GMEXPORT double ii_get_sound(double id) {
-        SoundInstance* ii = get_instance(id);
+        pSoundInstance ii = get_instance(id);
 
         if(ii == nullptr) return -1;
         SoundBuffer* snd = ii->getSoundBuffer();

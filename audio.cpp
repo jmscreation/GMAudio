@@ -4,7 +4,8 @@ namespace Engine {
 
     AudioContext* AudioContext::currentCtx = nullptr;
 
-    AudioContext::AudioContext(int rate): sampleRate(rate), stream(nullptr) {
+    AudioContext::AudioContext(int rate): sampleRate(rate), stream(nullptr),
+        autoDestroy(new std::thread(callbackAutoDestroy, this)), ctxRunning(true) {
         if(currentCtx == nullptr) {
             currentCtx = this;
 
@@ -37,15 +38,19 @@ namespace Engine {
     }
 
     AudioContext::~AudioContext() {
-        for(int i=playlist.size()-1;i>=0;i--)
+        PaError err = Pa_StopStream(stream);
+        if(err != paNoError) std::cout << "Error closing PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
+        Pa_Terminate();
+
+        ctxRunning = false;
+        autoDestroy->join();
+        delete autoDestroy;
+
+        for(int i=playlist.size()-1; i >= 0; --i)
             delete playlist[i];
 
         if(currentCtx == this) {
             currentCtx = nullptr;
-
-            PaError err = Pa_StopStream(stream);
-            if(err != paNoError) std::cout << "Error closing PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
-            Pa_Terminate();
         }
     }
 
@@ -57,21 +62,17 @@ namespace Engine {
     int AudioContext::callback(const void* in,void* out,unsigned long fpb,
         const PaStreamCallbackTimeInfo* tmi,PaStreamCallbackFlags flgs) {
 
-        locked.lock();
+        std::lock_guard lock(locked);
 
-        int playsz = playlist.size();
+        uint32_t playsz = playlist.size();
 
         float *samples_out = (float*)out;
 
         float L,R, lv,rv;
         for(unsigned int samp=0; samp<fpb; samp++) {
             L = R = 0;
-            for(int i=0; i<playsz; i++) {
-                if(playlist[i] == NULL) {
-                    playlist.erase(playlist.begin() + i);
-                    i--; playsz--;
-                    continue;
-                }
+            for(uint32_t i=0; i<playsz; i++) {
+                if(playlist[i] == nullptr) continue;
                 playlist[i]->sample(lv,rv);
                 L += lv; R += rv;
             }
@@ -79,11 +80,33 @@ namespace Engine {
             *samples_out++ = R;
         }
 
-        locked.unlock();
-
         return 0;
     }
 
+    void AudioContext::callbackAutoDestroy(AudioContext* ctx) {
+        std::vector<pSoundInstance> garbage;
+        do {
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            ctx->locked.lock();
+            
+            for(int i=ctx->playlist.size() - 1; i >= 0; --i){
+                pSoundInstance& snd = ctx->playlist[i];
+                if(snd != nullptr && snd->garbage){
+                    garbage.push_back(snd);
+                    snd = nullptr;
+                }
+                if(snd == nullptr){
+                    ctx->playlist.erase(ctx->playlist.begin() + i);
+                    continue;
+                }
+            }
+            ctx->locked.unlock();
+
+            for(pSoundInstance snd : garbage) delete snd;
+            garbage.clear();
+
+        } while(ctx->ctxRunning);
+    }
 
     SoundBuffer::SoundBuffer():
         samples(nullptr), sampleCount(0), defVolume(1), defDestroy(false) {}
@@ -97,7 +120,7 @@ namespace Engine {
         if(samples != nullptr)
             delete samples;
 
-        sampleCount = stb_vorbis_decode_filename(fn.c_str(), &channels,&sampleRate,&samples);
+        sampleCount = stb_vorbis_decode_filename(fn.c_str(), &channels, &sampleRate, &samples);
 
         if(sampleCount == -1) {
             samples = nullptr;
@@ -109,12 +132,12 @@ namespace Engine {
     }
 
     bool SoundBuffer::loadOGGFromMemory(const void* data,size_t size) {
-        if(samples != NULL)
+        if(samples != nullptr)
             delete samples;
 
         sampleCount = stb_vorbis_decode_memory((const unsigned char*)data,size, &channels,&sampleRate,&samples);
         if(sampleCount == -1) {
-            samples = NULL;
+            samples = nullptr;
             std::cout << "Warning: unable to load vorbis from memory" << std::endl;
             return false;
         }
@@ -149,7 +172,7 @@ namespace Engine {
                     samples[i] = (short)(((long long int*)data)[i] >> 48);
                 break;
             default:
-                samples = NULL;
+                samples = nullptr;
                 return false;
         }
 
@@ -164,31 +187,31 @@ namespace Engine {
         return float(sampleCount) / float(sampleRate);
     }
 
-    SoundInstance* SoundBuffer::play() {
-        return new SoundInstance(this,1,defDestroy,defVolume);
+    pSoundInstance SoundBuffer::play() {
+        return new SoundInstance(this, 1, defDestroy, defVolume);
     }
 
-    SoundInstance* SoundBuffer::play(bool dest) {
-        return new SoundInstance(this,1,dest,defVolume);
+    pSoundInstance SoundBuffer::play(bool dest) {
+        return new SoundInstance(this, 1, dest, defVolume);
     }
 
-    SoundInstance* SoundBuffer::loop() {
-        return new SoundInstance(this,2,defDestroy,defVolume);
+    pSoundInstance SoundBuffer::loop() {
+        return new SoundInstance(this, 2, defDestroy, defVolume);
     }
 
-    SoundInstance* SoundBuffer::loop(bool dest) {
-        return new SoundInstance(this,2,dest,defVolume);
+    pSoundInstance SoundBuffer::loop(bool dest) {
+        return new SoundInstance(this, 2, dest, defVolume);
     }
 
-    SoundInstance* SoundBuffer::create() {
-        return new SoundInstance(this,0,defDestroy,defVolume);
+    pSoundInstance SoundBuffer::create() {
+        return new SoundInstance(this, 0, defDestroy, defVolume);
     }
 
-    SoundInstance* SoundBuffer::create(bool dest) {
+    pSoundInstance SoundBuffer::create(bool dest) {
         return new SoundInstance(this,0,dest,defVolume);
     }
 
-    void SoundBuffer::sample(float& L,float& R,const double& p) {
+    void SoundBuffer::sample(float& L, float& R, const double& p) {
         float t = p - floor(p);
         int i = (int)floor(p);
         i = i<0 ? 0 : i>sampleCount-1 ? sampleCount-1 : i;
@@ -201,9 +224,8 @@ namespace Engine {
             L = R = 0;
     }
 
-
-    SoundInstance::SoundInstance(SoundBuffer* buf,int playmode,bool dest,float volume):
-        sound(buf), pos(0), speed(playmode==0 ? 0 : buf->sampleFactor), volPan(0), vol(volume), pspeed(1), destroy(dest), looping(playmode==2) {
+    SoundInstance::SoundInstance(SoundBuffer* buf, int playmode, bool dest, float volume):
+        sound(buf), pos(0), speed(playmode==0 ? 0 : buf->sampleFactor), volPan(0), vol(volume), pspeed(1), destroy(dest), looping(playmode==2), garbage(false) {
         AudioContext& ctx = AudioContext::current();
 
         ctx.locked.lock();
@@ -213,10 +235,9 @@ namespace Engine {
 
     SoundInstance::~SoundInstance() {
         AudioContext& ctx = AudioContext::current();
-
         ctx.locked.lock();
-        auto i = std::find(ctx.playlist.begin(),ctx.playlist.end(),this);
-        *i = nullptr;
+        auto i = std::find(ctx.playlist.begin(), ctx.playlist.end(), this);
+        if(i != ctx.playlist.end()) *i = nullptr;
         ctx.locked.unlock();
     }
 
@@ -242,7 +263,7 @@ namespace Engine {
     void SoundInstance::stop(bool dest) {
         speed = 0;
         pos = 0;
-        if(dest) delete this;
+        if(dest) garbage = true;
     }
 
     int SoundInstance::samplePosition() {
@@ -267,6 +288,8 @@ namespace Engine {
     }
 
     void SoundInstance::sample(float& L,float& R) {
+        if(garbage) return;
+
         sound->sample(L,R,pos);
         L *= (1-(volPan<0 ? 0 : volPan)) * vol;
         R *= ((volPan>1 ? 1 : volPan)+1) * vol;

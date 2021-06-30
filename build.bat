@@ -21,7 +21,7 @@ echo Compile Files...
 %CPP% -O2 -Wall -std=c++20 -DBUILD_DLL  -c stb_vorbis.cpp -o obj\stb_vorbis.o
 
 echo Export DLL...
-%GPP% -shared -Wl,--dll -Llibraries obj\audio.o obj\main.o obj\stb_vorbis.o -o %OUTPUT% -s -static-libstdc++ -static-libgcc -static -static-libstdc++ -static-libgcc -static  -lportaudio-s -lwinmm -luser32 -lsetupapi
+%GPP% -shared -Wl,--dll obj\audio.o obj\main.o obj\stb_vorbis.o -o %OUTPUT% -L.\ -s -static -static-libstdc++ -static-libgcc -lportaudio-s -lwinmm -lsetupapi -luser32
 
 if exist %OUTPUT% (
 	echo Build Successful!
