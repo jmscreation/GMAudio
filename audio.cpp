@@ -73,8 +73,9 @@ namespace Engine {
             L = R = 0;
             for(uint32_t i=0; i<playsz; i++) {
                 if(playlist[i] == nullptr) continue;
-                playlist[i]->sample(lv,rv);
-                L += lv; R += rv;
+                if(playlist[i]->sample(lv,rv)){
+                    L += lv; R += rv;
+                }
             }
             *samples_out++ = L;
             *samples_out++ = R;
@@ -112,6 +113,14 @@ namespace Engine {
         samples(nullptr), sampleCount(0), defVolume(1), defDestroy(false) {}
 
     SoundBuffer::~SoundBuffer() {
+        AudioContext& ctx = AudioContext::current();
+
+        ctx.locked.lock();
+        for(auto snd : ctx.playlist){
+            if(snd->sound == this) snd->stop(true);
+        }
+        ctx.locked.unlock();
+        
         if(samples != nullptr)
             delete samples;
     }
@@ -287,8 +296,8 @@ namespace Engine {
             pos = double(sound->sampleCount-1);
     }
 
-    void SoundInstance::sample(float& L,float& R) {
-        if(garbage) return;
+    bool SoundInstance::sample(float& L,float& R) {
+        if(garbage) return false;
 
         sound->sample(L,R,pos);
         L *= (1-(volPan<0 ? 0 : volPan)) * vol;
@@ -308,6 +317,8 @@ namespace Engine {
                     pos = 0;
             }
         }
+
+        return true;
     }
 
 }

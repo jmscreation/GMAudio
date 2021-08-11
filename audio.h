@@ -120,7 +120,7 @@ namespace Engine {
 		inline float length() { return sound->length(); }
 
 	private:
-		void sample(float& L,float& R);
+		bool sample(float& L,float& R);
 
 		friend class SoundBuffer;
 		friend class AudioContext;
